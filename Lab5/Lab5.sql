@@ -8,7 +8,7 @@ SELECT DISTINCT
 FROM music.composer comp
 INNER JOIN music.countries cntr ON comp.country_id = cntr.country_id
 WHERE comp.date_birth IS NOT NULL
-ORDER BY comp.surname;
+ORDER BY composer_full_name;
 
 
 -- 2) Запрос с LEFT JOIN, GROUP BY
@@ -26,19 +26,25 @@ GROUP BY cntr.country_id, cntr.name
 ORDER BY music_count DESC;
 
 
--- 3) Запрос с RIGHT JOIN
--- Найти произведения с длинными названиями и преобразовать имена композиторов
+-- 3) Запрос с INNER JOIN
+-- Анализ произведений по жанрам
 SELECT 
-    mus.name as music_name,
-    comp.surname as composer_surname,
-    LENGTH(mus.name) as title_length,
-    SUBSTRING(mus.name FROM 1 FOR 20) as short_title,
-    LOWER(comp.surname) as lower_surname
-FROM music.music mus
-RIGHT JOIN music.composer comp ON mus.composer_id = comp.composer_id
-WHERE mus.duration IS NOT NULL
-  AND LENGTH(mus.name) > 15
-ORDER BY title_length DESC;
+    g.name as genre_name,
+    m.name as music_name,
+    comp.surname || ' ' || LEFT(comp.name, 1) || '.' as composer_short,
+    UPPER(SUBSTRING(m.name FROM 1 FOR 3)) as music_code,
+    LENGTH(m.name) as title_length,
+    TO_CHAR(m.finished_date, 'YYYY') as creation_year,
+    ROUND(EXTRACT(EPOCH FROM (m.duration::time)) / 60, 1) as duration_minutes
+FROM music.genres g
+INNER JOIN music.music_genres mg ON g.genre_id = mg.genre_id
+INNER JOIN music.music m ON mg.music_id = m.music_id
+INNER JOIN music.composer comp ON m.composer_id = comp.composer_id
+WHERE m.finished_date BETWEEN '1800-01-01' AND '2030-01-01'
+  AND m.duration IS NOT NULL
+  AND LENGTH(m.name) > 5
+ORDER BY duration_minutes DESC, genre_name
+LIMIT 3;
 
 
 -- 4) Запрос с FULL OUTER JOIN и DISTINCT
@@ -53,41 +59,43 @@ WHERE po.private_owner_id IS NOT NULL
    OR cntr.country_id IS NOT NULL;
 
 
--- 5) Запрос с двумя INNER JOIN
--- Рассчитать среднюю продолжительность произведений по композиторам и жанрам
+-- 5) Запрос с двумя LEFT JOIN
+-- Статистика по жанрам с расчетом средней продолжительности
 SELECT 
-    comp.surname || ' ' || LEFT(comp.name, 1) || '.' as composer_short,
-    gen.name as genre_name,
+    g.name as genre_name,
     COUNT(mg.music_id) as compositions_count,
     ROUND(AVG(
-        EXTRACT(HOUR FROM mus.duration::time) * 60 + 
-        EXTRACT(MINUTE FROM mus.duration::time)
-    ), 1) as avg_duration_minutes
-FROM music.composer comp
-INNER JOIN music.music mus ON comp.composer_id = mus.composer_id
-INNER JOIN music.music_genres mg ON mus.music_id = mg.music_id
-INNER JOIN music.genres gen ON mg.genre_id = gen.genre_id
-WHERE mus.duration IS NOT NULL
-  AND mus.finished_date IS NOT NULL
-GROUP BY comp.composer_id, comp.surname, comp.name, gen.genre_id, gen.name
-HAVING COUNT(mg.music_id) >= 2
-ORDER BY avg_duration_minutes DESC;
+        EXTRACT(EPOCH FROM (m.duration::time)) / 60
+    ), 2) as avg_duration_minutes,
+    MIN(EXTRACT(EPOCH FROM (m.duration::time)) / 60) as min_duration_minutes,
+    MAX(EXTRACT(EPOCH FROM (m.duration::time)) / 60) as max_duration_minutes
+FROM music.genres g
+LEFT JOIN music.music_genres mg ON g.genre_id = mg.genre_id
+LEFT JOIN music.music m ON mg.music_id = m.music_id
+WHERE m.duration IS NOT NULL
+GROUP BY g.genre_id, g.name
+HAVING COUNT(mg.music_id) > 0
+ORDER BY compositions_count DESC;
 
 
 -- 6) Запрос с LEFT JOIN и RIGHT JOIN
--- Получить информацию о произведениях и организациях владельцах за определенный перио
-SELECT 
-    mus.name as composition_name,
-    TO_CHAR(mus.finished_date, 'YYYY-MM-DD') as formatted_date,
-    comp.surname as composer_surname,
-    org.name as organization_name,
-    DATE_PART('year', mus.finished_date) as composition_year
-FROM music.music mus
-LEFT JOIN music.composer comp ON mus.composer_id = comp.composer_id
-RIGHT JOIN music.music_organization_owners moo ON mus.music_id = moo.music_id
-RIGHT JOIN music.organization_owners org ON moo.organization_owner_id = org.organization_owner_id
-WHERE mus.finished_date BETWEEN '1900-01-01' AND '2000-01-01'
-ORDER BY mus.finished_date;
+-- Статистика по странам и композиторам
+SELECT DISTINCT
+    cntr.name as country_name,
+    COUNT(DISTINCT comp.composer_id) as total_composers,
+    COUNT(DISTINCT m.music_id) as total_compositions,
+    STRING_AGG(DISTINCT comp.surname, ', ' ORDER BY comp.surname) as composers_list,
+    ROUND(AVG(EXTRACT(YEAR FROM CURRENT_DATE) - EXTRACT(YEAR FROM comp.date_birth)), 1) as avg_composer_age,
+    SUM(EXTRACT(EPOCH FROM (m.duration::time)) / 60) as total_duration_minutes
+FROM music.countries cntr
+FULL JOIN music.composer comp ON cntr.country_id = comp.country_id
+FULL JOIN music.music m ON comp.composer_id = m.composer_id
+WHERE comp.date_birth IS NOT NULL
+  AND m.duration IS NOT NULL
+  AND EXTRACT(YEAR FROM comp.date_birth) > 1700
+GROUP BY cntr.country_id, cntr.name
+HAVING COUNT(DISTINCT comp.composer_id) > 0
+ORDER BY total_compositions DESC, country_name;
 
 
 -- 7) Запрос с INNER JOIN
@@ -109,23 +117,23 @@ WHERE mus.duration IS NOT NULL
       EXTRACT(MINUTE FROM mus.duration::time) > 30;
 
 
--- 8) Запрос с несколькими JOIN
--- Получить подробную информацию о произведениях
+-- 8) Запрос с FULL JOIN
+-- Aнализ композиторов и их произведений
 SELECT 
-    comp.surname || ' ' || comp.name as full_composer_name,
+    comp.surname || ' ' || comp.name as composer_name,
     cntr.name as composer_country,
-    mus.name as music_name,
-    gen.name as genre_name,
-    REVERSE(comp.surname) as reversed_surname,
-    REPEAT('*', LENGTH(comp.surname) / 2) as surname_stars
+    COUNT(m.music_id) as total_compositions,
+    STRING_AGG(m.name, '; ' ORDER BY m.finished_date) as compositions_list,
+    ROUND(AVG(EXTRACT(EPOCH FROM (m.duration::time)) / 60), 1) as avg_composition_minutes,
+    SUM(EXTRACT(EPOCH FROM (m.duration::time)) / 60) as total_minutes
 FROM music.composer comp
-INNER JOIN music.countries cntr ON comp.country_id = cntr.country_id
-INNER JOIN music.music mus ON comp.composer_id = mus.composer_id
-INNER JOIN music.music_genres mg ON mus.music_id = mg.music_id
-INNER JOIN music.genres gen ON mg.genre_id = gen.genre_id
-WHERE comp.date_birth IS NOT NULL
-  AND gen.name LIKE '%симфония%'
-ORDER BY comp.surname, mus.name;
+FULL JOIN music.countries cntr ON comp.country_id = cntr.country_id
+FULL JOIN music.music m ON comp.composer_id = m.composer_id
+WHERE m.finished_date IS NOT NULL
+  AND m.duration IS NOT NULL
+GROUP BY comp.composer_id, comp.surname, comp.name, cntr.name
+HAVING COUNT(m.music_id) >= 1
+ORDER BY total_minutes DESC, total_compositions DESC;
 
 
 -- 9) Запрос с FULL JOIN
