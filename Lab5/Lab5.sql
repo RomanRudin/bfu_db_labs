@@ -78,7 +78,7 @@ HAVING COUNT(mg.music_id) > 0
 ORDER BY compositions_count DESC;
 
 
--- 6) Запрос с LEFT JOIN и RIGHT JOIN
+-- 6) Запрос с FULL JOIN
 -- Статистика по странам и композиторам
 SELECT DISTINCT
     cntr.name as country_name,
