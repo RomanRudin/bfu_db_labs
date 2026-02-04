@@ -14,6 +14,9 @@ DELETE FROM music.long_compositions;
 DELETE FROM music.russian_composers_works;
 DELETE FROM music.genres_simple;
 
+
+
+
 --  INSERT операции:
 -- 1.1) Добавление нескольких стран одной командой
 INSERT INTO music.countries (country_id, name) VALUES
@@ -40,11 +43,6 @@ INSERT INTO music.music (music_id, composer_id, name, duration, finished_date, p
 INSERT INTO music.private_owners (private_owner_id, name, surname, second_name, address, country_id) VALUES
 (1, 'Иван', 'Петров', 'Семёнович', 'Москва, 10', 1),
 (2, 'Петр', 'Иванов', 'Семёнович', 'Санкт-Петербург', 1);
-
--- Добавление связей произведений с жанрами
-INSERT INTO music.music_genres (music_id, genre_id) VALUES
-(1, 1), (1, 2), -- Симфония 1 - симфония, опера
-(2, 1); -- Симфония 2 - симфония
 
 
 
@@ -91,6 +89,7 @@ SELECT
     UPPER(name) as genre_name
 FROM music.genres;
 SELECT * FROM music.genres_simple;
+
 
 
 
@@ -165,3 +164,10 @@ DELETE FROM music.composer
 USING music.countries
 WHERE music.composer.country_id = music.countries.country_id
 AND music.countries.name = 'Польша';
+
+
+INSERT INTO music.composer (composer_id, name, surname, second_name, date_birth, country_id)
+SELECT composer_id, name, surname, , second_name, date_birth, country_id
+FROM msuic.composer
+WhERE music.composer.country_id = 1;
+SELECT * FROM music.composer;

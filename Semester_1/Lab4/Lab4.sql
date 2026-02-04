@@ -1,4 +1,4 @@
--- 1) Запрос с DISTINCT и функциями даты
+-- 1) Запрос с DISTINCT
 -- Получить уникальный список композиторов с годами рождения и возрастом на момент смерти
 SELECT DISTINCT 
     c.surname || ' ' || c.name as composer_name,
@@ -109,7 +109,7 @@ WHERE duration IS NOT NULL
 ORDER BY total_minutes DESC;
 
 
--- 9) COUNT and etc.
+-- 9) Запрос с COUNT and etc.
 -- Статистика композиторов по датам жизни
 SELECT 
     COUNT(*) as total_composers,
