@@ -1,3 +1,7 @@
+SELECT 1, 2 FROM music.music;
+SELECT * FROM music.music;
+
+
 -- 1 Скалярные подзапросы
 -- 1.1 Произведение с самой поздней датой премьеры
 SELECT m.name, 

@@ -10,19 +10,18 @@ CREATE OR REPLACE PROCEDURE music.найти_композитора_по_id(
     p_id INT,
     INOUT cur REFCURSOR DEFAULT 'cur_result'
 )
-LANGUAGE plpgsql AS '
+LANGUAGE plpgsql AS $$
 BEGIN
     OPEN cur FOR
-        SELECT c.composer_id, c.surname || '' '' || c.name AS ФИО, co.name AS Страна,
+        SELECT c.composer_id, c.surname || ' ' || c.name AS ФИО, co.name AS Страна,
                 c.date_birth AS Дата_рождения, c.date_death AS Дата_смерти
         FROM music.composer AS c
         JOIN music.countries AS co ON c.country_id = co.country_id
         WHERE c.composer_id = p_id;
     IF NOT FOUND THEN
-        RAISE NOTICE ''Композитор с ID % не найден.'', p_id;
+        RAISE NOTICE 'Композитор с ID % не найден.', p_id;
     END IF;
-END;
-';
+END; $$;
 
 -- Вызов процедуры:
 BEGIN;
@@ -49,12 +48,12 @@ CREATE OR REPLACE PROCEDURE music.найти_произведение_по_id(
     p_id INT,
     INOUT cur REFCURSOR DEFAULT 'cur_result'
 )
-LANGUAGE plpgsql AS '
+LANGUAGE plpgsql AS $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM music.music WHERE music_id = p_id
     ) THEN
-        RAISE EXCEPTION ''Произведение с ID % не найдено.'', p_id;
+        RAISE EXCEPTION 'Произведение с ID % не найдено.', p_id;
     END IF;
 
     OPEN cur FOR
@@ -65,8 +64,7 @@ BEGIN
         JOIN music.composer AS c ON m.composer_id = c.composer_id
         LEFT JOIN music.countries AS co ON m.country_id = co.country_id
         WHERE m.music_id = p_id;
-END;
-';
+END; $$;
 
 -- Вызов процедуры:
 BEGIN;
@@ -93,7 +91,7 @@ CREATE OR REPLACE PROCEDURE music.найти_произведение_по_на�
     p_name_part TEXT,
     INOUT cur REFCURSOR DEFAULT 'cur_result'
 )
-LANGUAGE plpgsql AS '
+LANGUAGE plpgsql AS $$
 BEGIN
     OPEN cur FOR
         SELECT m.music_id, m.name AS Произведение, c.surname AS Композитор,
@@ -102,11 +100,10 @@ BEGIN
         JOIN music.composer AS c ON m.composer_id = c.composer_id
         LEFT JOIN music.music_genres AS mg ON m.music_id = mg.music_id
         LEFT JOIN music.genres AS g ON mg.genre_id = g.genre_id
-        WHERE m.name ILIKE ''%'' || p_name_part || ''%''
+        WHERE m.name ILIKE '%' || p_name_part || '%'
         GROUP BY m.music_id, m.name, c.surname, m.premier_date
         ORDER BY m.premier_date;
-END;
-';
+END; $$;
 
 -- Вызов процедуры:
 BEGIN;
@@ -133,11 +130,11 @@ CREATE OR REPLACE PROCEDURE music.найти_композитора_по_фам�
     p_surname_part TEXT,
     INOUT cur REFCURSOR DEFAULT 'cur_result'
 )
-LANGUAGE plpgsql AS '
+LANGUAGE plpgsql AS $$
 BEGIN
     OPEN cur FOR
         SELECT c.composer_id,
-                c.surname || '' '' || c.name AS ФИО,
+                c.surname || ' ' || c.name AS ФИО,
                 co.name AS Страна,
                 c.date_birth AS Дата_рождения,
                 c.date_death AS Дата_смерти,
@@ -145,12 +142,11 @@ BEGIN
         FROM music.composer AS c
         JOIN music.countries AS co ON c.country_id = co.country_id
         LEFT JOIN music.music AS m ON c.composer_id = m.composer_id
-        WHERE c.surname ILIKE ''%'' || p_surname_part || ''%''
+        WHERE c.surname ILIKE '%' || p_surname_part || '%'
         GROUP BY c.composer_id, c.surname, c.name,
                  co.name, c.date_birth, c.date_death
         ORDER BY c.surname;
-END;
-';
+END; $$;
 
 -- Поиск по началу фамилии:
 BEGIN;
@@ -173,20 +169,19 @@ CREATE OR REPLACE PROCEDURE music.добавить_жанр(
     p_name TEXT,
     p_description TEXT DEFAULT NULL
 )
-LANGUAGE plpgsql AS '
+LANGUAGE plpgsql as $$
 BEGIN
     IF EXISTS (SELECT 1 FROM music.genres WHERE name = p_name) THEN
         RAISE EXCEPTION
-            ''Жанр с названием "%" уже существует.'', p_name;
+            'Жанр с названием "%" уже существует.', p_name;
     END IF;
 
     INSERT INTO music.genres (genre_id, name, description)
     VALUES (p_genre_id, p_name, p_description);
 
-    RAISE NOTICE ''Жанр "%" (ID=%) успешно добавлен.'',
+    RAISE NOTICE 'Жанр "%" (ID=%) успешно добавлен.',
                  p_name, p_genre_id;
-END;
-';
+END; $$;
 
 --Вызов процедуры:
 -- Успешная вставка:
@@ -212,12 +207,12 @@ CREATE OR REPLACE PROCEDURE music.добавить_произведение(
     p_premier_date DATE DEFAULT NULL, p_premier_place TEXT DEFAULT NULL,
     p_country_id INT DEFAULT NULL
 )
-LANGUAGE plpgsql AS '
+LANGUAGE plpgsql as $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM music.composer WHERE composer_id = p_composer_id
     ) THEN
-        RAISE EXCEPTION ''Композитор с ID % не найден.'', p_composer_id;
+        RAISE EXCEPTION 'Композитор с ID % не найден.', p_composer_id;
     END IF;
 
     IF EXISTS (
@@ -225,7 +220,7 @@ BEGIN
         WHERE composer_id = p_composer_id AND name = p_name
     ) THEN
         RAISE EXCEPTION
-            ''У композитора (ID=%) уже есть произведение "%".'',
+            'У композитора (ID=%) уже есть произведение "%".',
             p_composer_id, p_name;
     END IF;
 
@@ -236,10 +231,9 @@ BEGIN
         (p_music_id, p_composer_id, p_name, p_duration,
          p_finished_date, p_premier_date, p_premier_place, p_country_id);
 
-    RAISE NOTICE ''Произведение "%" (ID=%) добавлено.'',
+    RAISE NOTICE 'Произведение "%" (ID=%) добавлено.',
                  p_name, p_music_id;
-END;
-';
+END; $$;
 
 -- Вызов процедуры:
 -- Успешная вставка:
@@ -267,19 +261,19 @@ CALL music.добавить_произведение(
 CREATE OR REPLACE PROCEDURE music.добавить_владельца_произведения(
     p_owner_id INT, p_music_id INT, p_date_buy DATE
 )
-LANGUAGE plpgsql AS '
+LANGUAGE plpgsql as $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM music.music WHERE music_id = p_music_id
     ) THEN
-        RAISE EXCEPTION ''Произведение с ID % не найдено.'', p_music_id;
+        RAISE EXCEPTION 'Произведение с ID % не найдено.', p_music_id;
     END IF;
 
     IF NOT EXISTS (
         SELECT 1 FROM music.private_owners
         WHERE private_owner_id = p_owner_id
     ) THEN
-        RAISE EXCEPTION ''Владелец с ID % не найден.'', p_owner_id;
+        RAISE EXCEPTION 'Владелец с ID % не найден.', p_owner_id;
     END IF;
 
     IF EXISTS (
@@ -288,7 +282,7 @@ BEGIN
           AND music_id = p_music_id
     ) THEN
         RAISE EXCEPTION
-            ''Владелец (ID=%) уже владеет произведением (ID=%).'',
+            'Владелец (ID=%) уже владеет произведением (ID=%).',
             p_owner_id, p_music_id;
     END IF;
 
@@ -298,10 +292,9 @@ BEGIN
         (p_owner_id, p_music_id, p_date_buy, NULL);
 
     RAISE NOTICE
-        ''Произведение (ID=%) передано владельцу (ID=%) от %.'',
+        'Произведение (ID=%) передано владельцу (ID=%) от %.',
         p_music_id, p_owner_id, p_date_buy;
-END;
-';
+END; $$;
 
 --Вызов процедуры:
 -- Успешная запись:
@@ -326,12 +319,12 @@ CREATE OR REPLACE PROCEDURE music.добавить_организацию_вла
     p_org_id INT, p_name TEXT, p_address TEXT DEFAULT NULL,
     p_country_id INT DEFAULT NULL
 )
-LANGUAGE plpgsql AS '
+LANGUAGE plpgsql as $$
 BEGIN
     IF p_country_id IS NOT NULL AND NOT EXISTS (
         SELECT 1 FROM music.countries WHERE country_id = p_country_id
     ) THEN
-        RAISE EXCEPTION ''Страна с ID % не найдена.'', p_country_id;
+        RAISE EXCEPTION 'Страна с ID % не найдена.', p_country_id;
     END IF;
 
     IF EXISTS (
@@ -340,7 +333,7 @@ BEGIN
           AND country_id = p_country_id
     ) THEN
         RAISE EXCEPTION
-            ''Организация "%" уже существует в стране ID=%.'',
+            'Организация "%" уже существует в стране ID=%.',
             p_name, p_country_id;
     END IF;
 
@@ -349,10 +342,9 @@ BEGIN
     VALUES
         (p_org_id, p_name, p_address, p_country_id);
 
-    RAISE NOTICE ''Организация "%" (ID=%) добавлена.'',
+    RAISE NOTICE 'Организация "%" (ID=%) добавлена.',
                  p_name, p_org_id;
-END;
-';
+END; $$;
 
 -- Вызов процедуры:
 -- Успешная вставка:
@@ -385,12 +377,12 @@ CALL music.добавить_организацию_владельца(
 CREATE OR REPLACE PROCEDURE music.обновить_дату_премьеры(
     p_music_id INT, p_premier_date DATE
 )
-LANGUAGE plpgsql AS '
+LANGUAGE plpgsql as $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM music.music WHERE music_id = p_music_id
     ) THEN
-        RAISE EXCEPTION ''Произведение с ID % не найдено.'', p_music_id;
+        RAISE EXCEPTION 'Произведение с ID % не найдено.', p_music_id;
     END IF;
 
     UPDATE music.music
@@ -398,10 +390,9 @@ BEGIN
     WHERE music_id = p_music_id;
 
     RAISE NOTICE
-        ''Дата премьеры произведения ID=% обновлена на %.'',
+        'Дата премьеры произведения ID=% обновлена на %.',
         p_music_id, p_premier_date;
-END;
-';
+END; $$;
 
 -- Вызов процедуры:
 -- Успешное обновление:
@@ -425,23 +416,23 @@ CALL music.обновить_дату_премьеры(99, '2000-01-01');
 CREATE OR REPLACE PROCEDURE music.обновить_страну_композитора(
     p_composer_id INT, p_country_id INT
 )
-LANGUAGE plpgsql AS '
+LANGUAGE plpgsql as $$
 DECLARE
     v_name TEXT;
 BEGIN
-    SELECT surname || '' '' || name INTO v_name
+    SELECT surname || ' ' || name INTO v_name
     FROM music.composer
     WHERE composer_id = p_composer_id;
 
     IF NOT FOUND THEN
         RAISE EXCEPTION
-            ''Композитор с ID % не найден.'', p_composer_id;
+            'Композитор с ID % не найден.', p_composer_id;
     END IF;
 
     IF NOT EXISTS (
         SELECT 1 FROM music.countries WHERE country_id = p_country_id
     ) THEN
-        RAISE EXCEPTION ''Страна с ID % не найдена.'', p_country_id;
+        RAISE EXCEPTION 'Страна с ID % не найдена.', p_country_id;
     END IF;
 
     UPDATE music.composer
@@ -449,10 +440,9 @@ BEGIN
     WHERE composer_id = p_composer_id;
 
     RAISE NOTICE
-        ''Страна композитора % (ID=%) обновлена на country_id=%.'',
+        'Страна композитора % (ID=%) обновлена на country_id=%.',
         v_name, p_composer_id, p_country_id;
-END;
-';
+END; $$;
 
 -- Вызов процедуры:
 -- Успешное обновление:
@@ -477,7 +467,7 @@ CALL music.обновить_страну_композитора(7, 99);
 CREATE OR REPLACE PROCEDURE music.массов_обновление_страны_премьеры(
     p_old_country_id INT, p_new_country_id INT
 )
-LANGUAGE plpgsql AS '
+LANGUAGE plpgsql as $$
 DECLARE
     v_count INT;
 BEGIN
@@ -485,14 +475,14 @@ BEGIN
         SELECT 1 FROM music.countries WHERE country_id = p_old_country_id
     ) THEN
         RAISE EXCEPTION
-            ''Исходная страна с ID % не найдена.'', p_old_country_id;
+            'Исходная страна с ID % не найдена.', p_old_country_id;
     END IF;
 
     IF NOT EXISTS (
         SELECT 1 FROM music.countries WHERE country_id = p_new_country_id
     ) THEN
         RAISE EXCEPTION
-            ''Целевая страна с ID % не найдена.'', p_new_country_id;
+            'Целевая страна с ID % не найдена.', p_new_country_id;
     END IF;
 
     UPDATE music.music
@@ -501,10 +491,9 @@ BEGIN
 
     GET DIAGNOSTICS v_count = ROW_COUNT;
     RAISE NOTICE
-        ''Обновлено % произведений: страна ID=% -> ID=%.'',
+        'Обновлено % произведений: страна ID=% -> ID=%.',
         v_count, p_old_country_id, p_new_country_id;
-END;
-';
+END; $$;
 
 -- Вызов процедуры:
 -- Перенести все австрийские премьеры в Германию:
@@ -530,13 +519,13 @@ CALL music.массов_обновление_страны_премьеры(99, 2
 CREATE OR REPLACE PROCEDURE music.массово_установить_дату_продажи(
     p_buy_before DATE, p_sell_date DATE
 )
-LANGUAGE plpgsql AS '
+LANGUAGE plpgsql as $$
 DECLARE
     v_count INT;
 BEGIN
     IF p_sell_date < p_buy_before THEN
         RAISE EXCEPTION
-            ''Дата продажи (%) не может быть раньше даты покупки (%).'',
+            'Дата продажи (%) не может быть раньше даты покупки (%).',
             p_sell_date, p_buy_before;
     END IF;
 
@@ -549,15 +538,14 @@ BEGIN
 
     IF v_count = 0 THEN
         RAISE NOTICE
-            ''Записей для обновления не найдено (покупка до %).'',
+            'Записей для обновления не найдено (покупка до %).',
             p_buy_before;
     ELSE
         RAISE NOTICE
-            ''Дата продажи % установлена для % записей.'',
+            'Дата продажи % установлена для % записей.',
             p_sell_date, v_count;
     END IF;
-END;
-';
+END; $$;
 
 -- Вызов процедуры:
 -- Закрыть все старые записи владения (до 2015):
